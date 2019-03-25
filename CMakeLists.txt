@@ -31,32 +31,26 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 
-## CMake compatibility issues: don't modify this, please!
-CMAKE_MINIMUM_REQUIRED( VERSION 2.4.6 )
-MARK_AS_ADVANCED(CMAKE_BACKWARDS_COMPATIBILITY)
-## allow more human readable "if then else" constructs
-SET( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE )
-## disable rpath when linking
+CMAKE_MINIMUM_REQUIRED( VERSION 3.8.0 )
 SET( CMAKE_SKIP_RPATH TRUE )
 
-
 ## project name & version
-PROJECT( partio )
-SET( ${PROJECT_NAME}_MAJOR_VERSION 0 )
-SET( ${PROJECT_NAME}_MINOR_VERSION 1 )
-SET( ${PROJECT_NAME}_PATCH_LEVEL 0 )
-
-include(GNUInstallDirs)
+PROJECT(partio LANGUAGES CXX VERSION 1.5.2)
 
 # PARTIO_SE_ENABLED enables SeExpr support
 option(PARTIO_SE_ENABLED "PARTIO_SE_ENABLED" false)
+option(GTEST_ENABLED "Enable GTest for tests" false)
+
+# Enable C++11
+SET(CMAKE_CXX_STANDARD 11)
+SET(CMAKE_CXX_STANDARD_REQUIRED YES)
+SET(CMAKE_CXX_EXTENSIONS NO)
 
 ## Setup platform specific helper defines build variants
 IF(WIN32)
   ADD_DEFINITIONS (-DPARTIO_WIN32 -D_USE_MATH_DEFINES)
 ELSE(WIN32)
-  ADD_DEFINITIONS (-Wextra -Wno-unused-parameter)
-  SET( CMAKE_CXX_FLAGS "-fPIC")
+  ADD_COMPILE_OPTIONS (-Wextra -Wno-unused-parameter)
 ENDIF(WIN32)
 
 ## Choose build options
@@ -74,11 +68,19 @@ IF(NOT CMAKE_BUILD_TYPE)
       FORCE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
 
+include(CTest)
+enable_testing()
+
 ## Set install location
-IF (NOT DEFINED CMAKE_INSTALL_PREFIX)
+IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     EXECUTE_PROCESS(COMMAND sh -c "echo `uname`-`uname -r | cut -d'-' -f1`-`uname -m`" OUTPUT_VARIABLE VARIANT_DIRECTORY OUTPUT_STRIP_TRAILING_WHITESPACE)
     SET(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/${VARIANT_DIRECTORY}")
-ENDIF(NOT DEFINED CMAKE_INSTALL_PREFIX)
+ENDIF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+
+include(GNUInstallDirs)
+
+# Prefer libglvnd for OpenGL
+set(OpenGL_GL_PREFERENCE GLVND)
 
 ## Search for useful libraries
 find_package(GLUT REQUIRED)
@@ -86,17 +88,15 @@ find_package(OpenGL REQUIRED)
 find_package(ZLIB)
 IF(ZLIB_FOUND)
     ADD_DEFINITIONS (-DPARTIO_USE_ZLIB)
-    INCLUDE_DIRECTORIES ( ${ZLIB_INCLUDE_DIR} )
 ELSE(ZLIB_FOUND)
     SET (ZLIB_LIBRARY "")
 ENDIF(ZLIB_FOUND)
 
+option(BUILD_SHARED_LIBS "Enabled shared libraries" ON)
+
 ## Make modules able to see partio library
 # Setup environment variable to link partio
 SET( PARTIO_LIBRARIES partio ${ZLIB_LIBRARY} )
-
-# make it so partio can be found
-INCLUDE_DIRECTORIES( ${CMAKE_SOURCE_DIR}/src/lib )
 
 if (${PARTIO_SE_ENABLED})
     add_definitions(-DPARTIO_SE_ENABLED=1)
@@ -104,9 +104,15 @@ if (${PARTIO_SE_ENABLED})
     SET(SEEXPR_INCLUDE_PATH ${SEEXPR_BASE}/include)
     SET(SEEXPR_LIBDIR ${CMAKE_INSTALL_LIBDIR})
     SET(SEEXPR_LINK_PATH ${SEEXPR_BASE}/${SEEXPR_LIBDIR})
-    SET(SEEXPR_LIBS "SeExpr")
+    find_library(SEEXPR_LIB SeExpr HINTS ${SEEXPR_LINK_PATH})
 endif ()
 
+if (${GTEST_ENABLED})
+    set($GEST_LOCATION "/usr" CACHE STRING "gtest installation prefix")
+    set(GTEST_INCLUDE_PATH ${GTEST_BASE}/include)
+    set(GTEST_LIBDIR ${CMAKE_INSTALL_LIBDIR})
+    set(GTEST_LINK_PATH ${GTEST_LOCATION}/${GTEST_LIBDIR} CACHE STRING "gtest library directory")
+endif()
 
 ## Traverse subdirectories
 ADD_SUBDIRECTORY (src/lib)

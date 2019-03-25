@@ -31,10 +31,22 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 
-link_directories(${CMAKE_BINARY_DIR}/src/lib)
+set(CMAKE_INSTALL_PARTIO_TESTDIR ${CMAKE_INSTALL_DATAROOTDIR}/partio/test)
+find_library(GTEST_LIB gtest HINTS ${GTEST_LINK_PATH})
 
-foreach(item testiterator test testcache testclonecopy testcluster teststr makecircle makeline testkdtree)
-    ADD_EXECUTABLE(${item} "${item}.cpp")
-    target_link_libraries(${item} ${PARTIO_LIBRARIES})
-    install(TARGETS ${item} DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/partio/test)
-endforeach(item)
+if ("${GTEST_LIB}" STREQUAL "GTEST_LIB-NOTFOUND")
+    message("${GTEST_LIB} libgtest not found, tests disabled")
+else()
+    link_directories(${CMAKE_BINARY_DIR}/src/lib ${GTEST_LIB})
+
+    foreach(item testiterator testio testcache testclonecopy testcluster teststr makecircle makeline testkdtree testmerge)
+        add_executable(${item} "${item}.cpp")
+        target_link_libraries(${item} ${PARTIO_LIBRARIES} gtest)
+        target_compile_definitions(${item} PRIVATE -DPARTIO_DATA_DIR="${PROJECT_SOURCE_DIR}/src/data")
+        install(TARGETS ${item} DESTINATION ${CMAKE_INSTALL_PARTIO_TESTDIR})
+        add_test(NAME ${item} COMMAND ${item})
+    endforeach(item)
+
+    install(PROGRAMS testpartjson.py DESTINATION ${CMAKE_INSTALL_PARTIO_TESTDIR} RENAME testpartjson)
+
+endif()
